@@ -66,7 +66,12 @@ This project was developed using Claude 3.5 Sonnet in Cursor IDE, leveraging adv
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the MIT License. However, it uses several third-party libraries with their own licenses:
+
+- Tesseract.js: Apache-2.0 License
+- React and most other dependencies: MIT License
+
+Please see the respective license files in the node_modules directory for detailed license information of each dependency.
 
 ## Contributing
 
