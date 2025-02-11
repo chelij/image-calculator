@@ -1,6 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const CopyPlugin = require('copy-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   mode: 'development',
@@ -32,12 +32,25 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './src/index.html'
+      template: './src/index.html',
+      filename: 'index.html'
     }),
-    new CopyPlugin({
+    new CopyWebpackPlugin({
       patterns: [
-        { from: './src/styles.css', to: 'styles.css' }
+        {
+          from: 'node_modules/tesseract.js/dist/worker.min.js',
+          to: 'tesseract-worker.min.js'
+        },
+        {
+          from: 'node_modules/tesseract.js-core/tesseract-core.wasm.js',
+          to: 'tesseract-core.wasm.js'
+        },
+        {
+          from: 'src/styles.css',
+          to: 'styles.css'
+        }
       ]
     })
-  ]
+  ],
+  target: 'electron-renderer'
 }; 

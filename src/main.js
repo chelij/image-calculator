@@ -1,10 +1,19 @@
 const { app, BrowserWindow, clipboard } = require('electron')
 const path = require('path')
+const fs = require('fs')
 
 // Add this line to hide the console in production
 if (require('electron').app.isPackaged) {
   process.env.NODE_ENV = 'production';
 }
+
+// Get the correct path for tessdata in both development and production
+const getTessdataPath = () => {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'tessdata');
+  }
+  return path.join(__dirname, '..', 'assets', 'tessdata');
+};
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -17,7 +26,8 @@ function createWindow() {
       contextIsolation: false,
       webSecurity: true,
       sandbox: false,
-      allowRunningInsecureContent: false
+      allowRunningInsecureContent: false,
+      additionalArguments: [`--tessdata-path=${getTessdataPath()}`]
     },
     // Add these window configurations
     show: false, // Don't show until ready

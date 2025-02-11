@@ -47,6 +47,12 @@ h1 {
   flex-wrap: wrap;
 }
 
+.setting-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .setting-group label {
   color: var(--text-secondary);
   font-size: 14px;
@@ -67,11 +73,33 @@ h1 {
   padding: 20px;
   border-radius: 12px;
   transition: all 0.3s ease;
+  cursor: default;
 }
 
 .paste-area:hover {
   border-color: var(--accent-primary);
   background: var(--bg-tertiary);
+}
+
+/* Add styles for retry functionality */
+.paste-area[onClick]:not([onClick=""]) {
+  cursor: pointer;
+}
+
+.retry-hint {
+  color: var(--accent-primary);
+  font-size: 0.9em;
+  margin-top: 10px;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 .numbers-container {
@@ -285,8 +313,29 @@ button:hover {
   background: var(--bg-tertiary);
 }
 
+@keyframes progress {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .progress-bar {
-  background: var(--accent-primary);
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #81C784, #4CAF50);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar[style*="animation"] {
+  background: linear-gradient(90deg, #2196F3, #64B5F6, #2196F3);
+  background-size: 200% 100%;
 }
 
 .paste-instructions {
@@ -318,4 +367,46 @@ button:hover {
   font-size: 0.9em;
   color: #666;
   margin: 0;
-} 
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--accent-primary);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  position: relative;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  background: var(--accent-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  content: '✓';
+  color: white;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+}
+
+.checkbox-label input[type="checkbox"]:hover {
+  border-color: var(--accent-secondary);
+}
+
+.checkbox-label span {
+  color: var(--text-secondary);
+  font-size: 14px;
+}

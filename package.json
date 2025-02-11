@@ -1,6 +1,6 @@
 {
   "name": "image-calculator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Calculator app that processes numbers from images",
   "main": "src/main.js",
   "scripts": {
@@ -48,6 +48,13 @@
       "dist/**/*",
       "src/main.js",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/tessdata",
+        "to": "tessdata",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
       "target": [{

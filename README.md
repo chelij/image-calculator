@@ -1,28 +1,35 @@
 # Image Calculator
 
-A desktop application that extracts and processes numbers from images using OCR technology. Built with Electron and React, this application allows users to perform calculations on numbers found in images.
+A desktop application that extracts numbers from images and performs calculations on them. Perfect for quickly processing numbers from screenshots, photos, or any image source.
 
 ## Features
 
-- Image upload and processing
-- Optical Character Recognition (OCR) for number extraction
-- Real-time calculation capabilities
-- Cross-platform support (Windows, macOS, Linux)
-- Modern and intuitive user interface
-
-## Technology Stack
-
-- **Frontend Framework**: React 18
-- **Desktop Framework**: Electron
-- **OCR Engine**: Tesseract.js
-- **Build System**: Webpack
-- **Package Management**: npm
+- Extract numbers from images using OCR
+- Support for different number formats:
+  - Configurable thousand separators (comma, period, space, or none)
+  - Configurable decimal points (comma, period, or none)
+  - Special mode for processing numbers in separate rows
+- Basic calculator operations (+, -, ×, ÷)
+- History tracking
+- Copy results to clipboard
+- Dark mode UI
 
 ## Installation
 
+### Download
+
+Download the latest release from the [releases page](https://github.com/yourusername/image-calculator/releases).
+
+Available versions:
+- Windows: `Image Calculator Setup.exe` (installer) or `Image Calculator.exe` (portable)
+- macOS: Coming soon
+- Linux: Coming soon
+
+### Build from Source
+
 1. Clone the repository:
 ```bash
-git clone https://github.com/chelij/image-calculator.git
+git clone https://github.com/yourusername/image-calculator.git
 cd image-calculator
 ```
 
@@ -31,48 +38,53 @@ cd image-calculator
 npm install
 ```
 
-3. Start the application:
-```bash
-npm start
-```
-
-For development mode with hot reloading:
+3. Run in development mode:
 ```bash
 npm run dev
 ```
 
-## Building for Distribution
-
-### Windows
+4. Build for production:
 ```bash
-npm run pack:win
+npm run pack:win  # for Windows
+npm run pack:mac  # for macOS
+npm run pack:linux  # for Linux
 ```
 
-### macOS
-```bash
-npm run pack:mac
-```
+## Usage
 
-### Linux
-```bash
-npm run pack:linux
-```
-
-Build outputs will be available in the `release` directory.
+1. Launch the application
+2. Configure your number format preferences:
+   - Set your preferred thousand separator
+   - Set your preferred decimal point
+   - Enable "Numbers in separate rows" if needed
+3. Take a screenshot of numbers you want to calculate
+4. Paste (Ctrl+V) the screenshot into the application
+5. Adjust operators between numbers if needed
+6. Click Calculate
+7. Copy the result or view calculation history
 
 ## Development
 
-This project was developed using Claude 3.5 Sonnet in Cursor IDE, leveraging advanced AI capabilities for efficient and robust code development.
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- Electron 28+
+
+### Project Structure
+
+```
+image-calculator/
+├── src/
+│   ├── components/     # React components
+│   ├── styles.css     # Global styles
+│   ├── main.js        # Electron main process
+│   └── index.jsx      # React entry point
+├── assets/
+│   └── tessdata/      # OCR training data
+└── dist/              # Build output
+```
 
 ## License
 
-This project is open source and available under the MIT License. However, it uses several third-party libraries with their own licenses:
-
-- Tesseract.js: Apache-2.0 License
-- React and most other dependencies: MIT License
-
-Please see the respective license files in the node_modules directory for detailed license information of each dependency.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. 
+MIT License - see LICENSE file for details 
