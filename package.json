@@ -1,7 +1,10 @@
 {
   "name": "image-calculator",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Calculator app that processes numbers from images",
+  "author": {
+    "name": "Image Calculator Team"
+  },
   "main": "src/main.js",
   "scripts": {
     "start": "rimraf dist && webpack && electron .",

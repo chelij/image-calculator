@@ -14,6 +14,11 @@ function App() {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [isTrainingDataReady, setIsTrainingDataReady] = useState(false);
   const [isRowBasedProcessing, setIsRowBasedProcessing] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [isAddToExisting, setIsAddToExisting] = useState(true);
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pendingNumbers, setPendingNumbers] = useState(null);
 
   // Get the tessdata path from the renderer process arguments
   const getTessdataPath = () => {
@@ -57,11 +62,15 @@ function App() {
     
     // Check if the number uses the current format settings
     const currentFormatRegex = new RegExp(
-      `^-?\\d+(?:${thousandSeparator}\\d{3})*(?:${decimalPoint}\\d+)?$`
+      `^-?\\d+(?:${thousandSeparator === '.' ? '\\.' : thousandSeparator}\\d{3})*(?:${decimalPoint === '.' ? '\\.' : decimalPoint}\\d+)?$`
     );
 
     // If it matches current format, parse it normally
     if (currentFormatRegex.test(cleanText)) {
+      // If decimal point is empty, remove all separators
+      if (decimalPoint === '') {
+        return parseFloat(cleanText.replace(/[.,]/g, ''));
+      }
       return parseFloat(
         cleanText
           .replace(new RegExp(`\\${thousandSeparator}`, 'g'), '')
@@ -79,9 +88,13 @@ function App() {
     const length = cleanText.length;
 
     // Determine if the last separator is likely a decimal point
-    // by checking if it has exactly 2 or 3 digits after it
     const digitsAfterComma = lastCommaIndex > -1 ? length - lastCommaIndex - 1 : 0;
     const digitsAfterPeriod = lastPeriodIndex > -1 ? length - lastPeriodIndex - 1 : 0;
+
+    // If no decimal point is selected, remove all separators
+    if (decimalPoint === '') {
+      return parseFloat(cleanText.replace(/[.,]/g, ''));
+    }
 
     let detectedThousandSep = '';
     let detectedDecimalPoint = '';
@@ -89,25 +102,28 @@ function App() {
     // If there's only one separator, determine its role based on position
     if (commaCount + periodCount === 1) {
       if (commaCount === 1) {
-        detectedDecimalPoint = digitsAfterComma === 2 || digitsAfterComma === 3 ? ',' : '.';
+        // If it's the last position and followed by 1-3 digits, it's likely a decimal point
+        detectedDecimalPoint = (digitsAfterComma > 0 && digitsAfterComma <= 3) ? ',' : '.';
         detectedThousandSep = detectedDecimalPoint === ',' ? '.' : ',';
       } else {
-        detectedDecimalPoint = digitsAfterPeriod === 2 || digitsAfterPeriod === 3 ? '.' : ',';
+        // Same logic for period
+        detectedDecimalPoint = (digitsAfterPeriod > 0 && digitsAfterPeriod <= 3) ? '.' : ',';
         detectedThousandSep = detectedDecimalPoint === '.' ? ',' : '.';
       }
     } 
     // If there are multiple separators, analyze their pattern
     else if (commaCount + periodCount > 1) {
-      if (commaCount > periodCount) {
-        detectedThousandSep = ',';
-        detectedDecimalPoint = '.';
-      } else if (periodCount > commaCount) {
-        detectedThousandSep = '.';
-        detectedDecimalPoint = ',';
+      const lastSeparator = lastCommaIndex > lastPeriodIndex ? ',' : '.';
+      const digitsAfterLast = lastSeparator === ',' ? digitsAfterComma : digitsAfterPeriod;
+
+      // If the last separator has 1-3 digits after it, it's likely a decimal point
+      if (digitsAfterLast > 0 && digitsAfterLast <= 3) {
+        detectedDecimalPoint = lastSeparator;
+        detectedThousandSep = lastSeparator === ',' ? '.' : ',';
       } else {
-        // If equal counts, use the last separator position to determine
-        detectedDecimalPoint = lastCommaIndex > lastPeriodIndex ? ',' : '.';
-        detectedThousandSep = detectedDecimalPoint === ',' ? '.' : ',';
+        // Otherwise, use the most frequent separator as thousand separator
+        detectedThousandSep = commaCount > periodCount ? ',' : '.';
+        detectedDecimalPoint = detectedThousandSep === ',' ? '.' : ',';
       }
     }
 
@@ -118,25 +134,95 @@ function App() {
         .replace(new RegExp(`\\${detectedDecimalPoint}`, 'g'), '.');
     }
 
-    return parseFloat(cleanText);
+    const result = parseFloat(cleanText);
+    return isNaN(result) ? 0 : result;
   };
 
   const formatNumber = (number) => {
-    const formatted = number.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 20,
-      useGrouping: thousandSeparator !== '',
-    });
+    if (typeof number !== 'number' || isNaN(number)) return '0';
 
-    if (thousandSeparator !== '') {
-      return formatted.replace(/,/g, thousandSeparator);
+    const parts = number.toString().split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+
+    // Format integer part with thousand separators if enabled
+    let formattedInteger = thousandSeparator !== '' 
+      ? integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator)
+      : integerPart;
+
+    // Add decimal part if it exists and decimal point is enabled
+    if (decimalPart && decimalPoint !== '') {
+      return `${formattedInteger}${decimalPoint}${decimalPart}`;
     }
-    return formatted;
+
+    return formattedInteger;
   };
 
   const copyNumber = (number) => {
     const rawNumber = number.toString();
     navigator.clipboard.writeText(rawNumber);
+  };
+
+  const processOCRNumbers = (allNumbers) => {
+    return allNumbers.map(num => {
+      // Clean up the text
+      let cleanText = num.trim();
+      
+      // If no decimal point is selected, remove all separators
+      if (decimalPoint === '') {
+        return parseFloat(cleanText.replace(/[.,]/g, ''));
+      }
+
+      // Count occurrences of commas and periods
+      const commaCount = (cleanText.match(/,/g) || []).length;
+      const periodCount = (cleanText.match(/\./g) || []).length;
+
+      // If there's only one separator, use user's decimal point setting
+      if (commaCount + periodCount === 1) {
+        if (cleanText.includes(',')) {
+          // If comma is used and matches user's decimal point, treat as decimal
+          if (decimalPoint === ',') {
+            return parseFloat(cleanText.replace(',', '.'));
+          }
+          // Otherwise treat as thousand separator
+          return parseFloat(cleanText.replace(',', ''));
+        } else {
+          // If period is used and matches user's decimal point, treat as decimal
+          if (decimalPoint === '.') {
+            return parseFloat(cleanText);
+          }
+          // Otherwise treat as thousand separator
+          return parseFloat(cleanText.replace('.', ''));
+        }
+      }
+
+      // If there are multiple separators
+      if (commaCount + periodCount > 1) {
+        // Get the last separator
+        const lastCommaIndex = cleanText.lastIndexOf(',');
+        const lastPeriodIndex = cleanText.lastIndexOf('.');
+        const lastSeparator = lastCommaIndex > lastPeriodIndex ? ',' : '.';
+        
+        // If last separator matches user's decimal point
+        if (lastSeparator === decimalPoint) {
+          // Replace all other separators and convert to standard format
+          if (decimalPoint === ',') {
+            return parseFloat(cleanText
+              .replace(/\./g, '')  // Remove all periods
+              .replace(',', '.')   // Convert comma to period for parseFloat
+            );
+          } else {
+            return parseFloat(cleanText.replace(/,/g, '')); // Remove all commas
+          }
+        } else {
+          // Last separator doesn't match decimal point, treat all as thousand seps
+          return parseFloat(cleanText.replace(/[.,]/g, ''));
+        }
+      }
+
+      // If no separators, just parse as is
+      return parseFloat(cleanText);
+    });
   };
 
   const handlePaste = async (e) => {
@@ -191,7 +277,11 @@ function App() {
             preserve_interword_spaces: '0',
             tessedit_ocr_engine_mode: '2',
             load_system_dawg: '0',
-            load_freq_dawg: '0'
+            load_freq_dawg: '0',
+            tessedit_write_images: '1',  // Enable debug images
+            tessedit_fix_superscripts: '0',  // Disable superscript detection
+            tessedit_fix_subscripts: '0',    // Disable subscript detection
+            tessedit_fix_hyphens: '0'        // Disable hyphen detection
           });
           
           console.log('Engine initialized');
@@ -245,79 +335,50 @@ function App() {
             .filter(line => line);
           console.log('Split lines:\n', lines.join('\n'));
           
+          // Clean up OCR results
+          const cleanupNumber = (text) => {
+            // Remove any spaces
+            let cleaned = text.trim().replace(/\s+/g, '');
+            
+            // Fix common OCR mistakes
+            cleaned = cleaned
+              // Remove trailing periods
+              .replace(/\.+$/, '')
+              // Fix cases where comma is read as period (common OCR mistake)
+              .replace(/(\d)\.(\d{3}(?:[.,]\d+)?)/g, '$1,$2')
+              // Remove any duplicate separators
+              .replace(/[.,]{2,}/g, '.')
+              // Clean up any remaining invalid patterns
+              .replace(/[.,]+$/, '');
+
+            return cleaned;
+          };
+
           let allNumbers = [];
           
           if (isRowBasedProcessing) {
             // Process each line as a single number
             for (const line of lines) {
               // Remove all spaces and non-numeric characters except . and ,
-              const cleanLine = line.replace(/[^0-9,.-]/g, '');
-              
+              const cleanLine = cleanupNumber(line.replace(/[^0-9,.-]/g, ''));
               if (cleanLine) {
-                let processedNumber = cleanLine;
-                const lastCommaIndex = cleanLine.lastIndexOf(',');
-                const lastPeriodIndex = cleanLine.lastIndexOf('.');
-
-                // If no decimal point is selected, remove all separators
-                if (decimalPoint === '') {
-                  processedNumber = cleanLine.replace(/[.,]/g, '');
-                }
-                // If decimal point is selected and we have separators
-                else if (lastCommaIndex > -1 || lastPeriodIndex > -1) {
-                  const lastSeparatorIsComma = lastCommaIndex > lastPeriodIndex;
-                  const lastSeparator = lastSeparatorIsComma ? ',' : '.';
-                  const lastSeparatorIndex = lastSeparatorIsComma ? lastCommaIndex : lastPeriodIndex;
-                  const digitsAfter = cleanLine.length - lastSeparatorIndex - 1;
-
-                  // If the last separator matches user's decimal point preference
-                  if (lastSeparator === decimalPoint) {
-                    // Keep this separator if it's the preferred decimal point
-                    processedNumber = cleanLine.replace(
-                      new RegExp(`[${lastSeparator === '.' ? ',' : '.'}]`, 'g'),
-                      ''
-                    );
-                  } 
-                  // If it's not the preferred decimal point
-                  else {
-                    // If there are 3 or more digits after, treat as thousand separator
-                    if (digitsAfter >= 3) {
-                      processedNumber = cleanLine.replace(/[.,]/g, '');
-                    }
-                    // If there are 2 digits after, remove the separator
-                    else if (digitsAfter === 2) {
-                      processedNumber = cleanLine.replace(/[.,]/g, '');
-                    }
-                    // For any other case, remove all separators
-                    else {
-                      processedNumber = cleanLine.replace(/[.,]/g, '');
-                    }
-                  }
-                }
-
-                allNumbers.push(processedNumber);
+                allNumbers.push(cleanLine);
               }
             }
           } else {
-            // Existing number processing logic for non-row-based mode
+            // Extract numbers from each line
             for (const line of lines) {
               const cleanLine = line.replace(/[A-Za-z$€£¥₹]+/g, '').trim();
               const numberRegex = /-?\d+(?:[.,]\d{3})*(?:[.,]\d+)?/g;
               const lineNumbers = cleanLine.match(numberRegex) || [];
               
               if (lineNumbers.length > 0) {
-                lineNumbers.forEach(num => {
-                  allNumbers.push(num);
-                });
+                allNumbers.push(...lineNumbers.map(cleanupNumber));
               }
             }
           }
           
-          console.log('Extracted numbers:');
-          console.table(allNumbers.map((num, index) => ({ 
-            index: index + 1, 
-            number: num,
-            parsed: parseNumberWithFormat(num)
-          })));
+          console.log('Extracted numbers:', allNumbers);
           
           if (allNumbers.length === 0) {
             console.log('No numbers found in text');
@@ -330,15 +391,32 @@ function App() {
             return;
           }
 
-          const parsedNumbers = allNumbers.map(n => parseNumberWithFormat(n));
-          console.log('Parsed numbers:');
-          console.table(parsedNumbers.map((num, index) => ({ 
-            index: index + 1, 
-            number: num 
-          })));
+          // Process numbers according to user's format settings
+          const parsedNumbers = processOCRNumbers(allNumbers);
+          console.log('Parsed numbers:', parsedNumbers);
           
-          setNumbers(parsedNumbers);
-          setOperators(new Array(parsedNumbers.length - 1).fill('+'));
+          // Use the toggle setting to determine how to handle new numbers
+          if (numbers.length > 0) {
+            if (isAddToExisting) {
+              handleAddToExisting(parsedNumbers);
+            } else {
+              handleNewCalculation(parsedNumbers);
+            }
+          } else {
+            // First paste always starts a new calculation
+            setNumbers(parsedNumbers);
+            setOperators(new Array(parsedNumbers.length - 1).fill('+'));
+            // Auto calculate sum
+            setTimeout(() => {
+              let sum = parsedNumbers.reduce((a, b) => a + b, 0);
+              setResult(sum);
+              setHistory([{
+                numbers: parsedNumbers,
+                operators: new Array(parsedNumbers.length - 1).fill('+'),
+                result: sum
+              }]);
+            }, 0);
+          }
           
         } catch (error) {
           console.error('Detailed OCR Error:', error);
@@ -366,6 +444,8 @@ function App() {
   };
 
   const calculate = () => {
+    if (numbers.length === 0) return;
+
     let result = numbers[0];
     for (let i = 0; i < operators.length; i++) {
       switch (operators[i]) {
@@ -375,16 +455,54 @@ function App() {
         case '-':
           result -= numbers[i + 1];
           break;
-        case '*':
+        case '×':
           result *= numbers[i + 1];
           break;
-        case '/':
+        case '÷':
           result /= numbers[i + 1];
           break;
       }
     }
     setResult(result);
-    setHistory([...history, { numbers, operators, result }]);
+    // Add new entries at the beginning of the array
+    setHistory([{ numbers, operators, result }, ...history]);
+  };
+
+  const handleNewCalculation = (newNumbers) => {
+    setNumbers(newNumbers);
+    setOperators(new Array(newNumbers.length - 1).fill('+'));
+    // Auto calculate sum
+    setTimeout(() => calculate(), 0);
+  };
+
+  const handleAddToExisting = (newNumbers) => {
+    const combinedNumbers = [...numbers, ...newNumbers];
+    const combinedOperators = [...operators, '+', ...new Array(newNumbers.length - 1).fill('+')];
+    
+    // Calculate new result immediately
+    let newResult = combinedNumbers[0];
+    for (let i = 0; i < combinedOperators.length; i++) {
+      switch (combinedOperators[i]) {
+        case '+':
+          newResult += combinedNumbers[i + 1];
+          break;
+        case '-':
+          newResult -= combinedNumbers[i + 1];
+          break;
+        case '×':
+          newResult *= combinedNumbers[i + 1];
+          break;
+        case '÷':
+          newResult /= combinedNumbers[i + 1];
+          break;
+      }
+    }
+
+    // Update all states at once
+    setNumbers(combinedNumbers);
+    setOperators(combinedOperators);
+    setResult(newResult);
+    setHistory([{ numbers: combinedNumbers, operators: combinedOperators, result: newResult }, ...history]);
   };
 
   const deleteNumber = (index) => {
@@ -404,6 +522,31 @@ function App() {
     
     setNumbers(newNumbers);
     setOperators(newOperators);
+  };
+
+  const handleEdit = (index) => {
+    setEditingIndex(index);
+    setEditValue(numbers[index].toString());
+  };
+
+  const handleEditSave = (index) => {
+    const newValue = parseNumberWithFormat(editValue);
+    if (!isNaN(newValue)) {
+      const newNumbers = [...numbers];
+      newNumbers[index] = newValue;
+      setNumbers(newNumbers);
+    }
+    setEditingIndex(null);
+    setEditValue('');
+  };
+
+  const handleEditCancel = () => {
+    setEditingIndex(null);
+    setEditValue('');
+  };
+
+  const handleCopyNumber = (number) => {
+    navigator.clipboard.writeText(number.toString());
   };
 
   return (
@@ -485,36 +628,88 @@ function App() {
         </div>
       </div>
 
+      <div className="paste-settings">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={isAddToExisting}
+            onChange={(e) => setIsAddToExisting(e.target.checked)}
+          />
+          <span>Add new numbers to existing calculation</span>
+        </label>
+      </div>
+
       <div className="numbers-container">
-        {numbers.map((num, index) => (
-          <React.Fragment key={index}>
-            <div className="number-group">
-              <span className="number-item">{formatNumber(num)}</span>
-              <button 
-                className="delete-button" 
-                onClick={() => deleteNumber(index)}
-                title="Delete number"
-              >
-                ×
-              </button>
-            </div>
-            {index < numbers.length - 1 && (
-              <select
-                className="operator-select"
-                value={operators[index]}
-                onChange={(e) => {
-                  const newOperators = [...operators];
-                  newOperators[index] = e.target.value;
-                  setOperators(newOperators);
-                }}
-              >
-                <option value="+">+</option>
-                <option value="-">−</option>
-                <option value="*">×</option>
-                <option value="/">÷</option>
-              </select>
+        {numbers.map((number, index) => (
+          <div key={index} className="number-group">
+            {editingIndex === index ? (
+              <>
+                <input
+                  type="text"
+                  className="number-input"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleEditSave(index);
+                    if (e.key === 'Escape') handleEditCancel();
+                  }}
+                  autoFocus
+                />
+                <button
+                  className="edit-button"
+                  onClick={() => handleEditSave(index)}
+                  style={{ opacity: 1 }}
+                >
+                  Save
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="number-item-container">
+                  <button
+                    className="edit-button"
+                    onClick={() => handleEdit(index)}
+                    title="Edit number"
+                  >
+                    <span className="icon icon-pencil"></span>
+                  </button>
+                  <div className="number-item">
+                    {formatNumber(number)}
+                  </div>
+                  <button
+                    className="copy-button"
+                    onClick={() => handleCopyNumber(number)}
+                    title="Copy number"
+                  >
+                    <span className="icon icon-clipboard"></span>
+                  </button>
+                  <button
+                    className="delete-button"
+                    onClick={() => deleteNumber(index)}
+                    title="Delete number"
+                  >
+                    <span className="icon icon-trash"></span>
+                  </button>
+                </div>
+                {index < numbers.length - 1 && (
+                  <select
+                    className="operator-select"
+                    value={operators[index] || '+'}
+                    onChange={(e) => {
+                      const newOperators = [...operators];
+                      newOperators[index] = e.target.value;
+                      setOperators(newOperators);
+                    }}
+                  >
+                    <option value="+">+</option>
+                    <option value="-">-</option>
+                    <option value="×">×</option>
+                    <option value="÷">÷</option>
+                  </select>
+                )}
+              </>
             )}
-          </React.Fragment>
+          </div>
         ))}
       </div>
       
@@ -555,6 +750,23 @@ function App() {
           ))}
         </div>
       </div>
+
+      {showPasteModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>New Numbers Detected</h3>
+            <p>How would you like to proceed?</p>
+            <div className="modal-buttons">
+              <button onClick={() => {
+                setPendingNumbers(null);
+                setShowPasteModal(false);
+              }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

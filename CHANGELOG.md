@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.3] - 2024-02-13
+
+### Changed
+- Replaced modal popup for new numbers with a toggle switch below paste area
+- Default behavior set to add new numbers to existing calculation
+- Fixed automatic sum calculation when adding new numbers
+- Latest results now appear at the top of history
+
+## [1.0.2] - 2024-02-12
+
+### Added
+- Individual number editing functionality with edit button at top left of each number
+- Individual number copy functionality with copy button at bottom center of each number
+- Improved number editing UX with keyboard support (Enter to save, Escape to cancel)
+
+### Changed
+- Updated number display UI to accommodate new edit and copy controls
+- Improved operator selector styling and default value handling
+
 ## [1.0.1] - 2024-02-11
 
 ### Added
